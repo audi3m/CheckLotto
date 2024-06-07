@@ -26,14 +26,14 @@ class ViewController: UIViewController {
     let plusLabel = UILabel()
     let bonusLabel = UILabel()
     
-    let firstAmt = UILabel()
+    let firstAmtLabel = UILabel()
     
     let picker = UIPickerView()
-    let numbers: [Int] = Array(1...1200)
+    var numbers: [Int] = []
     var round: Int = 0 {
         didSet {
+            resultLabel.text = "로딩중"
             numberPickerField.text = round.formatted()
-            resultLabel.text = "\(round.formatted())회 결과 로딩중"
             requestLotto(round: round)
         }
     }
@@ -44,13 +44,14 @@ class ViewController: UIViewController {
         picker.delegate = self
         picker.dataSource = self
         
-        round = 986
-        picker.selectRow(round-1, inComponent: 0, animated: true)
-        
         configHierarchy()
         configLayout()
         configUI()
-        requestLotto(round: 986)
+        
+        recentLotto { recentRound in
+            self.round = recentRound
+            self.numbers = Array(1...recentRound)
+        }
         
     }
     
@@ -70,7 +71,7 @@ class ViewController: UIViewController {
         view.addSubview(plusLabel)
         view.addSubview(bonusLabel)
         
-        view.addSubview(firstAmt)
+        view.addSubview(firstAmtLabel)
     }
     
     func configLayout() {
@@ -151,7 +152,7 @@ class ViewController: UIViewController {
             make.size.equalTo(40)
         }
         
-        firstAmt.snp.makeConstraints { make in
+        firstAmtLabel.snp.makeConstraints { make in
             make.top.equalTo(num1Label.snp.bottom).offset(20)
             make.horizontalEdges.equalTo(view.safeAreaLayoutGuide).inset(20)
             
@@ -181,7 +182,7 @@ class ViewController: UIViewController {
         divider.backgroundColor = .systemGray5
         
         // 1122회 당첨결과
-        resultLabel.text = ""
+        resultLabel.text = "로딩중"
         resultLabel.font = .boldSystemFont(ofSize: 25)
         
         // 3 6 21 30 34 35 + 22
@@ -196,34 +197,70 @@ class ViewController: UIViewController {
         plusLabel.text = ""
         plusLabel.font = .boldSystemFont(ofSize: 25)
         
+        firstAmtLabel.text = ""
+        firstAmtLabel.textAlignment = .center
+        firstAmtLabel.numberOfLines = 0
+        firstAmtLabel.font = .systemFont(ofSize: 25)
+        firstAmtLabel.textColor = .gray
         
+    }
+    
+    func recentLotto(completion: @escaping (Int) -> Void) {
+        let round = 1100
         
-        firstAmt.text = ""
-        firstAmt.textAlignment = .center
-        firstAmt.numberOfLines = 0
-        firstAmt.font = .systemFont(ofSize: 25)
-        firstAmt.textColor = .gray
+        func checkRound(_ currentRound: Int) {
+            let url = APIKey.lottoUrl + String(currentRound)
+            AF.request(url).responseDecodable(of: Lotto.self) { response in
+                switch response.result {
+                case .success:
+                    checkRound(currentRound + 1)
+                case .failure:
+                    completion(currentRound - 1)
+                }
+            }
+        }
         
+        checkRound(round)
+    }
+    
+    func defaultLotto() {
+        num1Label.text = ""
+        num2Label.text = ""
+        num3Label.text = ""
+        num4Label.text = ""
+        num5Label.text = ""
+        num6Label.text = ""
+        bonusLabel.text = ""
         
+        plusLabel.text = ""
+        
+        num1Label.backgroundColor = .clear
+        num2Label.backgroundColor = .clear
+        num3Label.backgroundColor = .clear
+        num4Label.backgroundColor = .clear
+        num5Label.backgroundColor = .clear
+        num6Label.backgroundColor = .clear
+        bonusLabel.backgroundColor = .clear
     }
     
     func configNumbers(lotto: Lotto) {
         num1Label.text = "\(lotto.drwtNo1)"
-        num1Label.backgroundColor = numberColor(number: lotto.drwtNo1)
         num2Label.text = "\(lotto.drwtNo2)"
-        num2Label.backgroundColor = numberColor(number: lotto.drwtNo2)
         num3Label.text = "\(lotto.drwtNo3)"
-        num3Label.backgroundColor = numberColor(number: lotto.drwtNo3)
         num4Label.text = "\(lotto.drwtNo4)"
-        num4Label.backgroundColor = numberColor(number: lotto.drwtNo4)
         num5Label.text = "\(lotto.drwtNo5)"
-        num5Label.backgroundColor = numberColor(number: lotto.drwtNo5)
         num6Label.text = "\(lotto.drwtNo6)"
-        num6Label.backgroundColor = numberColor(number: lotto.drwtNo6)
         bonusLabel.text = "\(lotto.bnusNo)"
-        bonusLabel.backgroundColor = numberColor(number: lotto.bnusNo)
         
         plusLabel.text = "+"
+        
+        num1Label.backgroundColor = numberColor(number: lotto.drwtNo1)
+        num2Label.backgroundColor = numberColor(number: lotto.drwtNo2)
+        num3Label.backgroundColor = numberColor(number: lotto.drwtNo3)
+        num4Label.backgroundColor = numberColor(number: lotto.drwtNo4)
+        num5Label.backgroundColor = numberColor(number: lotto.drwtNo5)
+        num6Label.backgroundColor = numberColor(number: lotto.drwtNo6)
+        bonusLabel.backgroundColor = numberColor(number: lotto.bnusNo)
     }
     
     func circleText(label: UILabel, number: Int = 0) {
@@ -258,13 +295,15 @@ extension ViewController {
                 self.resultLabel.text = "\(value.drwNo)회 당첨결과"
                 self.configNumbers(lotto: value)
                 self.infoDateLabel.text = value.drwDate
-                self.firstAmt.text = "1등 당첨금액 (\(value.firstPrzwnerCo))\n\(value.firstWinamnt.formatted())원"
+                self.firstAmtLabel.text = "1등 당첨금액 (\(value.firstPrzwnerCo))\n\(value.firstWinamnt.formatted())원"
+                self.picker.selectRow(round-1, inComponent: 0, animated: true)
                 
             case .failure(let error):
                 print(error)
                 self.resultLabel.text = "\(round)회 로딩 실패"
                 self.infoDateLabel.text = ""
-                
+                self.firstAmtLabel.text = ""
+                self.defaultLotto()
             }
         }
     }
